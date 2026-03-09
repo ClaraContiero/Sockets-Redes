@@ -1,82 +1,50 @@
-# --------------- PROJETO: Desenvolvimento de um sistema de chat multiusuário com notificação de status
-
-# socket()
-# .bind()
-# .listen()
-# .accept() 
-# .connect()
-# .connect_ex()
-# .send()
-# .recv()
-# .close() -> podemos fechar a aplicação aqui
-
-
 # --------------- Imports
-
 import socket
 import numpy as np
-import socket
 import threading
-import time
 
 
-# --------------- Funções Principais
-
-def enviar_comando(socket):
+# --------------- Parte 1: Notificar Corridas
+def notifica(socket):
     while True:
-        comando = input('Sua Escolha: ')  # aqui é o que a gente envia o que o motorista quer pro servidor
-        socket.sendall(comando.encode('utf-8')) 
-        if comando == '4':
-            print("\nSaindo da Aplicação...")
+        try: 
+            corrida = socket.recv(2048)
+            if not corrida:
+                break
+            print(f'\n[NOTIFICAÇÃO RECEBIDA]:\n {corrida.decode('utf-8')}')
+        except:
             break
 
-def print_evento(socket):
+
+# --------------- Parte 2: Enviar Comandos
+def enviar_comando(socket):
     while True:
-        recebe_evento = socket.recv(2048)
-        print(f"\n[NOTIFICAÇÃO]\n{recebe_evento.decode('utf-8')}")
-        print(f"\nEscolha uma opção abaixo:\n|1| ACEITAR\n|2| CANCELAR\n|3| MOSTRAR STATUS\n|4| SAIR\n")
-
-
-# --------------- Função Cliente
-
-def motorista(host = 'localhost', port=8082): 
-    soquete = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-
-    conectar_servidor = (host, port) 
-
-    print("Conectando ao endereço %s na porta %s" % conectar_servidor) 
-    soquete.connect(conectar_servidor) 
-
-
-    # Thread 2 - imprime notificação na tela
-    thread2_printEvento = threading.Thread(
-    target=print_evento, 
-    args=(soquete,) # parâmetro da função gerar evento
-    )
-
-    # # Thread 1 - envia comando
-    # thread1_comandos = threading.Thread(
-    #     target=enviar_comando, 
-    #     args=(soquete,) # parâmetro da função gerar evento
-    # )
-
-    # rodando as threads
-    thread2_printEvento.start()
-    # thread1_comandos.start()
-
+        comando = input()  # aqui é o que a gente envia o que o motorista quer pro servidor
+        socket.sendall(comando.encode('utf-8')) 
         
-    print('\nCliente conectado a')
-
-    while True:
-        time.sleep(1)
 
 
-    # e aqui é o comando que encerra o programa
-    # thread1_comandos.join()
+# --------------- Cliente Completo
+def motorista(host = 'localhost', port=8082): 
+
+    # ------ conexão com o socket e servidor
+    soquete = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+    conectar_servidor = (host, port) 
+    soquete.connect(conectar_servidor) # fazendo a ponte com o server
+
+    # ------ thread 1 - notificar eventos de corrida
+    thread1_escuta = threading.Thread(target=notifica, args=(soquete,))
+    thread1_escuta.start()
+    
+
+    # ------ thread 2 - enviar comandos para o server
+    thread2_envia = threading.Thread(target=enviar_comando, args=(soquete,))
+    thread2_envia.start()
+    thread2_envia.join()
+
+
     soquete.close()
 
 
-
-
-# chamando a função motorista
-motorista()
+# --------------- Execução do Programa
+motorista() 
