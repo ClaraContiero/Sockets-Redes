@@ -17,14 +17,27 @@ import socket
 import numpy as np
 import socket
 import threading
+import time
 
 
 # --------------- Funções Principais
+
 def enviar_comando(socket):
-    comando = input('\n--- DIGITE O CÓDIGO DA AÇÃO QUE DESEJA REALIZAR ---\n|1| ACEITAR\n|2| CANCELAR\n|3| MOSTRAR STATUS\n|4| SAIR\n')  # aqui é o que a gente envia o que o motorista quer pro servidor
-    socket.sendall(comando.encode('utf-8')) 
+    while True:
+        comando = input('Sua Escolha: ')  # aqui é o que a gente envia o que o motorista quer pro servidor
+        socket.sendall(comando.encode('utf-8')) 
+        if comando == '4':
+            print("\nSaindo da Aplicação...")
+            break
+
+def print_evento(socket):
+    while True:
+        recebe_evento = socket.recv(2048)
+        print(f"\n[NOTIFICAÇÃO]\n{recebe_evento.decode('utf-8')}")
+        print(f"\nEscolha uma opção abaixo:\n|1| ACEITAR\n|2| CANCELAR\n|3| MOSTRAR STATUS\n|4| SAIR\n")
 
 
+# --------------- Função Cliente
 
 def motorista(host = 'localhost', port=8082): 
     soquete = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
@@ -35,30 +48,31 @@ def motorista(host = 'localhost', port=8082):
     soquete.connect(conectar_servidor) 
 
 
-    # Thread 1
-    recebe_evento = soquete.recv(2048)
-    print(f"{recebe_evento.decode('utf-8')}")
-
-
-    # Thread 2
-    
-    thread1_comandos = threading.Thread(
-        target=enviar_comando, 
-        args=(soquete,) # parâmetro da função gerar evento
+    # Thread 2 - imprime notificação na tela
+    thread2_printEvento = threading.Thread(
+    target=print_evento, 
+    args=(soquete,) # parâmetro da função gerar evento
     )
-    
-    thread1_comandos.start()
 
-    # aqui estamos tentando garantir que os dados cheguem completos ao outro lado
-    # amount_received = 0 
-    # amount_expected = len(comando) 
+    # # Thread 1 - envia comando
+    # thread1_comandos = threading.Thread(
+    #     target=enviar_comando, 
+    #     args=(soquete,) # parâmetro da função gerar evento
+    # )
 
-    # while amount_received < amount_expected: 
-    data = soquete.recv(1024) 
-    # amount_received += len(data) 
-    print (f"Recebido do Servidor: {data.decode('utf-8')}" )  
+    # rodando as threads
+    thread2_printEvento.start()
+    # thread1_comandos.start()
+
+        
+    print('\nCliente conectado a')
+
+    while True:
+        time.sleep(1)
+
 
     # e aqui é o comando que encerra o programa
+    # thread1_comandos.join()
     soquete.close()
 
 
