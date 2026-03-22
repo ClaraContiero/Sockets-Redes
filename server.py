@@ -1,3 +1,31 @@
+# import random
+# import numpy as np
+# import pandas as pd
+
+# nome = 'maria'
+
+# valor_total = 0
+
+
+# # cria o arquivo
+# try:
+#   with open("saldos.json", "r") as arquivo:
+#       base_dados = json.load(arquivo)
+# except:
+#   dicio_base = {}
+
+# if nome in dicio_base:
+#   print(f'SALDO ATUAL: {dicio_base[nome]}')
+# else:
+#   dicio_base[nome] = 0
+
+# with open("saldos.json", "w") as arquivo:
+#     json.dump(dicio_base, arquivo, indent=4) ---> salvar  o arquivo
+
+
+
+
+
 # --------------- Imports
 import socket
 import numpy as np
@@ -119,12 +147,11 @@ def servidor(host='localhost', port=8082): # operação local, porta TCP/UDP (lo
 
       # ------ aqui o server identifica o motorista - gera as threads para cada "terminal"
       nome_motorista = motorista.recv(2048).decode('utf-8')
-      base_motoristas = json.loads('base_motoristas.json')
+      # base_motoristas = json.loads('base_motoristas.json')
       
-      for i in base_motoristas:
-         if nome_motorista == i:
-            print(f'Saldo atual do motorista {i} = {base_motoristas[i]}')
-
+      # for i in base_motoristas:
+      #    if nome_motorista == i:
+      #       print(f'Saldo atual do motorista {i} = {base_motoristas[i]}')
 
 
 
