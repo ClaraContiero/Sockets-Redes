@@ -4,12 +4,14 @@ import numpy as np
 import threading
 import time
 import random
+import json
 
 
 # --------------- Variáveis Globais
 valor_total = 0
 status = True # True - Disponível
 sair = False
+saldo_total = 0
 
 
 # --------------- Parte 1: Gerar Eventos de Corrida
@@ -36,7 +38,7 @@ def gerar_evento(client):
             corrida_atual = gerar_corrida()
             client.sendall(corrida_atual.encode('utf-8'))
 
-            time.sleep(5)
+            time.sleep(6)
 
             if status == True:    
                 cancelar = 'CORRIDA CANCELADA'.encode('utf-8')
@@ -61,6 +63,7 @@ def recebe_comando(client, data):
   global sair 
   global status
   global resposta
+  global saldo_total
 
   while True:
     try:
@@ -70,6 +73,7 @@ def recebe_comando(client, data):
 
       if resposta_decode == (':aceitar'): 
         status = False # então o status muda pra ocupado
+        saldo_total = saldo_total + valor_total
         client.sendall('CORRIDA ACEITA!'.encode('utf-8'))
 
       elif resposta_decode == (':cancelar'): 
@@ -79,10 +83,14 @@ def recebe_comando(client, data):
       elif resposta_decode == (':status'):
         client.sendall(mostrar_status(status).encode('utf-8'))
 
+      elif resposta_decode == (':carteira'):
+         client.sendall(f'SALDO TOTAL: R${round(saldo_total, 2)}'.encode('utf-8'))
+
       elif resposta_decode == (':sair'):
         sair = True
         try:
             client.sendall('Saindo da Aplicação...'.encode('utf-8'))
+            # aqui vai ser salvo no txt
         except:
           pass
         break
@@ -90,11 +98,12 @@ def recebe_comando(client, data):
       break
   client.close()
 
-
+      
 # --------------- Servidor Completo
 def servidor(host='localhost', port=8082): # operação local, porta TCP/UDP (local host indica basicamente o IP da nossa máquina)
     global status
     global sair
+   
 
     # ------ conexão com o socket
     carga_dados =  2048 # quantidade máxima de dados que pode ser recebida de uma vez
@@ -104,17 +113,32 @@ def servidor(host='localhost', port=8082): # operação local, porta TCP/UDP (lo
     soquete.bind(conectar_servidor)
     soquete.listen(5) # aqui podemos colocar um parâmetro que indica quantas conexões pendentes serão permitidas antes de recusar novas conexões
     print('Esperando o motorista...')
-    motorista, endereco = soquete.accept()
+ 
+    while True:
+      motorista, endereco = soquete.accept()
+
+      # ------ aqui o server identifica o motorista - gera as threads para cada "terminal"
+      nome_motorista = motorista.recv(2048).decode('utf-8')
+      base_motoristas = json.loads('base_motoristas.json')
+      
+      for i in base_motoristas:
+         if nome_motorista == i:
+            print(f'Saldo atual do motorista {i} = {base_motoristas[i]}')
 
 
-    # ------ thread 2 - gerar eventos de corrida
-    thread2_evento = threading.Thread(target=gerar_evento, args=(motorista,) ) # parâmetro da função gerar evento
-    thread2_evento.start()
 
 
-    # ------ thread 1 - receber comando
-    thread1_recebe = threading.Thread(target=recebe_comando, args=(motorista, carga_dados) ) # parâmetro da função gerar evento
-    thread1_recebe.start()
+      print(f'Motorista {nome_motorista} conectado.')
+
+
+      # ------ thread 2 - gerar eventos de corrida
+      thread2_evento = threading.Thread(target=gerar_evento, args=(motorista,) ) # parâmetro da função gerar evento
+      thread2_evento.start()
+
+
+      # ------ thread 1 - receber comando E atualiza a fila de motoristas (À SER FEITO)
+      thread1_recebe = threading.Thread(target=recebe_comando, args=(motorista, carga_dados) ) # parâmetro da função gerar evento
+      thread1_recebe.start()
 
 
 # --------------- Execução do Programa

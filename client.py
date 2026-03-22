@@ -32,11 +32,14 @@ def motorista(host = 'localhost', port=8082):
     conectar_servidor = (host, port) 
     soquete.connect(conectar_servidor) # fazendo a ponte com o server
 
+    # ------ entrando com o nome de usuário e enviando para o server
+    nome =  input('Entre com o seu nome de usuário:\n')
+    soquete.sendall(nome.encode('utf-8'))
+    
     # ------ thread 1 - notificar eventos de corrida
     thread1_escuta = threading.Thread(target=notifica, args=(soquete,))
     thread1_escuta.start()
-    
-
+  
     # ------ thread 2 - enviar comandos para o server
     thread2_envia = threading.Thread(target=enviar_comando, args=(soquete,))
     thread2_envia.start()
