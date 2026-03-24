@@ -1,31 +1,3 @@
-# import random
-# import numpy as np
-# import pandas as pd
-
-# nome = 'maria'
-
-# valor_total = 0
-
-
-# # cria o arquivo
-# try:
-#   with open("saldos.json", "r") as arquivo:
-#       base_dados = json.load(arquivo)
-# except:
-#   dicio_base = {}
-
-# if nome in dicio_base:
-#   print(f'SALDO ATUAL: {dicio_base[nome]}')
-# else:
-#   dicio_base[nome] = 0
-
-# with open("saldos.json", "w") as arquivo:
-#     json.dump(dicio_base, arquivo, indent=4) ---> salvar  o arquivo
-
-
-
-
-
 # --------------- Imports
 import socket
 import numpy as np
@@ -39,7 +11,7 @@ import json
 valor_total = 0
 status = True # True - Disponível
 sair = False
-saldo_total = 0
+dicio_base = {}
 
 
 # --------------- Parte 1: Gerar Eventos de Corrida
@@ -54,6 +26,7 @@ def gerar_corrida():
 
 def gerar_evento(client):
     global sair
+    global valor_total
     primeira_corrida = True # isso é pra que o programa execute rápido só na primeira rodada
 
     while not sair: # enquanto sair for True
@@ -70,7 +43,9 @@ def gerar_evento(client):
 
             if status == True:    
                 cancelar = 'CORRIDA CANCELADA'.encode('utf-8')
-                aumentar = f'NOVO PREÇO: {(round(valor_total + (valor_total * 0.35),2))} reais'.encode('utf-8')
+                novo_preco = valor_total + (valor_total * 0.35)
+                aumentar = f'NOVO PREÇO: {(round(novo_preco, 2))} reais'.encode('utf-8')
+                valor_total = novo_preco
                 lista = [cancelar, aumentar]
                 sorteio = random.choice(lista)
                 client.sendall(sorteio)
@@ -87,11 +62,12 @@ def mostrar_status(status):
   else:
     return 'Status: OCUPADO'
 
-def recebe_comando(client, data):
+def recebe_comando(client, data, nome):
   global sair 
   global status
   global resposta
-  global saldo_total
+  global valor_total
+
 
   while True:
     try:
@@ -101,8 +77,22 @@ def recebe_comando(client, data):
 
       if resposta_decode == (':aceitar'): 
         status = False # então o status muda pra ocupado
-        saldo_total = saldo_total + valor_total
         client.sendall('CORRIDA ACEITA!'.encode('utf-8'))
+        
+        try:
+          with open("saldos.json", "r") as arquivo:
+            base = json.load(arquivo)
+        except:
+            base = {}
+
+        saldo_atual = float(base.get(nome, 0))
+        base[nome] = round(saldo_atual + float(valor_total), 2)
+
+        with open("saldos.json", "w") as arquivo:
+            json.dump(base, arquivo, indent=4) # ---> salva  o arquivo
+
+        
+
 
       elif resposta_decode == (':cancelar'): 
         status = True # status muda pra disponível
@@ -112,13 +102,14 @@ def recebe_comando(client, data):
         client.sendall(mostrar_status(status).encode('utf-8'))
 
       elif resposta_decode == (':carteira'):
-         client.sendall(f'SALDO TOTAL: R${round(saldo_total, 2)}'.encode('utf-8'))
+          with open("saldos.json", "r") as arquivo:
+            base = json.load(arquivo) 
+            client.sendall(f'SALDO ATUAL: R${base[nome]}'.encode('utf-8'))
 
       elif resposta_decode == (':sair'):
         sair = True
         try:
             client.sendall('Saindo da Aplicação...'.encode('utf-8'))
-            # aqui vai ser salvo no txt
         except:
           pass
         break
@@ -126,11 +117,13 @@ def recebe_comando(client, data):
       break
   client.close()
 
+
       
 # --------------- Servidor Completo
 def servidor(host='localhost', port=8082): # operação local, porta TCP/UDP (local host indica basicamente o IP da nossa máquina)
     global status
     global sair
+    global dicio_base
    
 
     # ------ conexão com o socket
@@ -147,16 +140,23 @@ def servidor(host='localhost', port=8082): # operação local, porta TCP/UDP (lo
 
       # ------ aqui o server identifica o motorista - gera as threads para cada "terminal"
       nome_motorista = motorista.recv(2048).decode('utf-8')
-      # base_motoristas = json.loads('base_motoristas.json')
-      
-      # for i in base_motoristas:
-      #    if nome_motorista == i:
-      #       print(f'Saldo atual do motorista {i} = {base_motoristas[i]}')
-
-
-
       print(f'Motorista {nome_motorista} conectado.')
 
+      # ------ já aqui vamos criar nosso arquivo de "cadastro" dos motoristas
+      
+      try:
+        with open("saldos.json", "r") as arquivo:
+            dicio_base = json.load(arquivo)
+      except:
+            dicio_base = {}
+
+      with open("saldos.json", "w") as arquivo:
+        json.dump(dicio_base, arquivo, indent=4)
+      
+      saldo_total = dicio_base.get(nome_motorista, 0)
+
+
+     
 
       # ------ thread 2 - gerar eventos de corrida
       thread2_evento = threading.Thread(target=gerar_evento, args=(motorista,) ) # parâmetro da função gerar evento
@@ -164,7 +164,7 @@ def servidor(host='localhost', port=8082): # operação local, porta TCP/UDP (lo
 
 
       # ------ thread 1 - receber comando E atualiza a fila de motoristas (À SER FEITO)
-      thread1_recebe = threading.Thread(target=recebe_comando, args=(motorista, carga_dados) ) # parâmetro da função gerar evento
+      thread1_recebe = threading.Thread(target=recebe_comando, args=(motorista, carga_dados, nome_motorista, saldo_total) ) # parâmetro da função gerar evento
       thread1_recebe.start()
 
 
