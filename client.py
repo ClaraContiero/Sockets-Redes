@@ -35,6 +35,25 @@ def motorista(host = 'localhost', port=8082):
     # ------ entrando com o nome de usuário e enviando para o server
     nome =  input('Entre com o seu nome de usuário:\n')
     soquete.sendall(nome.encode('utf-8'))
+
+    # ------ verifica se o servidor respondeu com o limite excedido
+    try:
+        soquete.settimeout(6) #espera até 06 segundos por uma resposta inicial
+        resposta_inicial = soquete.recv(2048) 
+        if resposta_inicial:
+            mensagem = resposta_inicial.decode('utf-8') #transformar resposta do servidor em txt
+            if "LIMITE DE CONEXÕES ATINGIDO" in mensagem:
+                print(f'\n{mensagem}')
+                soquete.close()
+                return
+            else:
+                print(f"\n[NOTIFICAÇÃO RECEBIDA]:\n {mensagem}")
+    except socket.timeout:
+        pass
+    except (ConnectionAbortedError, ConnectionResetError):
+        print(f'\nLIMITE DE CONEXÕES ATINGIDO. TENTE NOVAMENTE MAIS TARDE!!')
+        soquete.close()
+        return
     
     # ------ thread 1 - notificar eventos de corrida
     thread1_escuta = threading.Thread(target=notifica, args=(soquete,))

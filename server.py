@@ -11,22 +11,27 @@ import json
 valor_total = 0
 status = True # True - Disponível
 sair = False
-dicio_base = {}
+
+# Limitação de conexões
+max_conexoes = 2
+conexoes_ativas = 0
+lock_conexoes = threading.Lock()
 
 
 # --------------- Parte 1: Gerar Eventos de Corrida
 def gerar_corrida():
+  global valor_total
+
   dist_inicial = np.random.randint(1, 20)
   dist_total = np.random.randint(1, 100)
   global valor_total
-  valor_total = (dist_total * 2.50) * 0.25
+  valor_total = round((dist_total * 2.50) * 0.25, 2)
   notif = f"\n--- OLÁ, MOTORISTA! ---\nDistância para o Início da Corrida: {dist_inicial} Km\nDistância da Corrida: {dist_total} Km\nValor a Ser Recebido: {round(valor_total,2)} reais\n"
   return notif
 
 
 def gerar_evento(client):
     global sair
-    global valor_total
     primeira_corrida = True # isso é pra que o programa execute rápido só na primeira rodada
 
     while not sair: # enquanto sair for True
@@ -43,7 +48,7 @@ def gerar_evento(client):
 
             if status == True:    
                 cancelar = 'CORRIDA CANCELADA'.encode('utf-8')
-                novo_preco = valor_total + (valor_total * 0.35)
+                novo_preco = round(valor_total + (valor_total * 0.35), 2)
                 aumentar = f'NOVO PREÇO: {(round(novo_preco, 2))} reais'.encode('utf-8')
                 valor_total = novo_preco
                 lista = [cancelar, aumentar]
@@ -62,38 +67,27 @@ def mostrar_status(status):
   else:
     return 'Status: OCUPADO'
 
-def recebe_comando(client, data, nome):
+def recebe_comando(client, data, nome, saldo):
   global sair 
   global status
   global resposta
   global valor_total
-
+  global conexoes_ativas
 
   while True:
     try:
       resposta = client.recv(data) # aqui é onde ele recebe a mensagem do client (se vai aceitar, cancelar, sair ou mostrar status)
-      
       resposta_decode = resposta.decode('utf-8').strip()
 
       if resposta_decode == (':aceitar'): 
         status = False # então o status muda pra ocupado
         client.sendall('CORRIDA ACEITA!'.encode('utf-8'))
-        
-        try:
-          with open("saldos.json", "r") as arquivo:
-            base = json.load(arquivo)
-        except:
-            base = {}
-
-        saldo_atual = float(base.get(nome, 0))
-        base[nome] = round(saldo_atual + float(valor_total), 2)
 
         with open("saldos.json", "w") as arquivo:
-            json.dump(base, arquivo, indent=4) # ---> salva  o arquivo
-
+          dicio_base[nome] = round(saldo + valor_total, 2)
+          saldo = round(dicio_base[nome], 2)
+          json.dump(dicio_base, arquivo, indent=4)
         
-
-
       elif resposta_decode == (':cancelar'): 
         status = True # status muda pra disponível
         client.sendall('CORRIDA CANCELADA!'.encode('utf-8'))
@@ -104,7 +98,7 @@ def recebe_comando(client, data, nome):
       elif resposta_decode == (':carteira'):
           with open("saldos.json", "r") as arquivo:
             base = json.load(arquivo) 
-            client.sendall(f'SALDO ATUAL: R${base[nome]}'.encode('utf-8'))
+            client.sendall(f'SALDO ATUAL: R$ {round(base[nome], 2)}'.encode('utf-8'))
 
       elif resposta_decode == (':sair'):
         sair = True
@@ -115,7 +109,12 @@ def recebe_comando(client, data, nome):
         break
     except:
       break
+
   client.close()
+
+  # diminui a quantidade de conexões ativas quando o cliente sair
+  with lock_conexoes:
+    conexoes_ativas -= 1
 
 
       
@@ -124,6 +123,7 @@ def servidor(host='localhost', port=8082): # operação local, porta TCP/UDP (lo
     global status
     global sair
     global dicio_base
+    global conexoes_ativas
    
 
     # ------ conexão com o socket
@@ -138,25 +138,38 @@ def servidor(host='localhost', port=8082): # operação local, porta TCP/UDP (lo
     while True:
       motorista, endereco = soquete.accept()
 
+      # ------ limitação do número de conexões
+      with lock_conexoes:
+        if conexoes_ativas >= max_conexoes:
+          motorista.sendall('LIMITE DE CONEXÕES ATINGIDO. TENTE NOVAMENTE MAIS TARDE.'.encode('utf-8'))
+          motorista.close()
+          continue
+        conexoes_ativas += 1
+
       # ------ aqui o server identifica o motorista - gera as threads para cada "terminal"
       nome_motorista = motorista.recv(2048).decode('utf-8')
       print(f'Motorista {nome_motorista} conectado.')
 
-      # ------ já aqui vamos criar nosso arquivo de "cadastro" dos motoristas
-      
-      try:
+      # # ------ já aqui vamos criar nosso arquivo de "cadastro" dos motoristas
+
+      try: # primeiro ele testa se o arquivo já existe e faz a "pesquisa" pra definir o saldo total atual
         with open("saldos.json", "r") as arquivo:
             dicio_base = json.load(arquivo)
-      except:
-            dicio_base = {}
+            if nome_motorista in dicio_base:
+              saldo_total = round(dicio_base[nome_motorista],2)
+            else:
+              with open("saldos.json", "w") as arquivo:
+                dicio_base[nome_motorista] = 0
+                json.dump(dicio_base, arquivo, indent=4)
+                saldo_total = round(dicio_base[nome_motorista],2)
 
-      with open("saldos.json", "w") as arquivo:
-        json.dump(dicio_base, arquivo, indent=4)
-      
-      saldo_total = dicio_base.get(nome_motorista, 0)
+      except: # aqui caso não exista o arquivo, ele cria um novo e já define o nome com saldo = 0
+              dicio_base = {}
+              with open("saldos.json", "w") as arquivo:
+                dicio_base[nome_motorista] = 0
+                saldo_total = round(dicio_base[nome_motorista],2)
+                json.dump(dicio_base, arquivo, indent=4)
 
-
-     
 
       # ------ thread 2 - gerar eventos de corrida
       thread2_evento = threading.Thread(target=gerar_evento, args=(motorista,) ) # parâmetro da função gerar evento
