@@ -1,4 +1,14 @@
 {
-    "luiz": 15.62,
-    "maria": 17.5
+    "maria": {
+        "valor_atual": 16.25,
+        "saldo_total": 98.13,
+        "status": true,
+        "sair": true
+    },
+    "luiz": {
+        "valor_atual": 0,
+        "saldo_total": 211.67,
+        "status": true,
+        "sair": false
+    }
 }
