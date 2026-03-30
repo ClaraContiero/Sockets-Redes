@@ -25,7 +25,7 @@ def gerar_evento(client, dados):
             time.sleep(espera)
             
             # interrompe o programa se sair = True
-            if dados['sair']:
+            if dados['sair'] == True:
                 break
 
             # chamando a função de gerar evento e calculando valor atual
@@ -59,7 +59,7 @@ def gerar_evento(client, dados):
                 primeira_corrida = False
 
             else:
-                client.sendall('\n[Finalize a corrida atual para receber novas]'.encode('utf-8'))
+                client.sendall('\n[Finalize ou cancele a corrida atual para receber novas!]'.encode('utf-8'))
                 time.sleep(5)
                 # ou seja, aqui só envia novas corridas se o status for True (disponível)
             
@@ -119,7 +119,6 @@ def recebe_comando(client, data, dados, dicio_base):
 # --------------- Servidor Completo
 def servidor(dicio_base, host='localhost', port=8082): # operação local, porta TCP/UDP (local host indica basicamente o IP da nossa máquina)
     global conexoes_ativas
-
   
     # ------ conexão com o socket
     carga_dados =  2048 # quantidade máxima de dados que pode ser recebida de uma vez
@@ -133,6 +132,7 @@ def servidor(dicio_base, host='localhost', port=8082): # operação local, porta
     while True:
         motorista, endereco = soquete.accept()
 
+        # ------ verificação do limite de conexões
         with lock_conexoes:
             if conexoes_ativas >= max_conexoes:
                 motorista.sendall('LIMITE ATINGIDO.'.encode('utf-8'))
@@ -142,8 +142,6 @@ def servidor(dicio_base, host='localhost', port=8082): # operação local, porta
                 conexoes_ativas += 1
                 motorista.sendall('OK.'.encode('utf-8'))
                 
-
-
         nome_motorista = motorista.recv(2048).decode('utf-8')
 
         # ------ testando se o motorista atual está na lista, caso não, botamos ele lá
@@ -171,14 +169,14 @@ def servidor(dicio_base, host='localhost', port=8082): # operação local, porta
 
 
         # ------ thread 1 - receber comando E atualiza a fila de motoristas (À SER FEITO)
-        thread1_recebe = threading.Thread(target=recebe_comando, args=(motorista, carga_dados,dados_motorista, dicio_base ) ) # parâmetro da função gerar evento
+        thread1_recebe = threading.Thread(target=recebe_comando, args=(motorista, carga_dados, dados_motorista, dicio_base) ) # parâmetro da função gerar evento
         thread1_recebe.start()
 
 
 # --------------- Execução do Programa
 if __name__ == "__main__":
 
-     # ------ primeiramente tentamos abrir o arquivo se ele existe, caso não, criamos um dicionário vazio
+    # ------ primeiramente tentamos abrir o arquivo se ele existe, caso não, criamos um dicionário vazio
     try:
         with open("saldos.json", "r") as arquivo:
             dicio_base = json.load(arquivo)
@@ -194,3 +192,4 @@ if __name__ == "__main__":
             with open("saldos.json", "w") as f:
                 json.dump(dicio_base, f, indent=4)
         print("Dados salvos. Encerrando programa...")
+ 
