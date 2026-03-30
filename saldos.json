@@ -1,13 +1,13 @@
 {
     "maria": {
-        "valor_atual": 16.25,
-        "saldo_total": 98.13,
+        "valor_atual": 61.88,
+        "saldo_total": 0,
         "status": true,
-        "sair": true
+        "sair": false
     },
     "luiz": {
         "valor_atual": 0,
-        "saldo_total": 211.67,
+        "saldo_total": 8.44,
         "status": true,
         "sair": false
     }
